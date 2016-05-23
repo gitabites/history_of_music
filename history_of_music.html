@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+
+body {
+	  font: 12px sans-serif;
+}
+
+.axis path,
+.axis line {
+	fill: none;
+	stroke: grey;
+	shape-rendering: crispEdges;
+}
+
+.dot {
+	stroke: none;
+	fill: steelblue;
+}
+
+.grid .tick {display: none;}
+
+.grid path {
+	stroke-width: 0;
+}
+
+div.tooltip {
+	position: absolute;
+	text-align: center;
+	width: 80px;
+	height: 42px;
+	padding: 2px;
+	font: 12px sans-serif;
+	background: #ddd;
+	border: solid 0px #aaa;
+	border-radius: 8px;
+	pointer-events: none;
+}
+
+</style>
+<body>
+<script src="http://d3js.org/d3.v3.min.js"></script>
+
+<script>
+//We kick off any d3 javscript with basic sizing
+var margin = {top: 100, right: 20, bottom: 30, left: 100},
+    width = window.innerWidth - margin.left - margin.right,
+    height = 500- margin.top - margin.bottom;
+
+//if we have date data, we need to tell d3 how to read it. 
+//in the music data case, all we have is the year 
+var parsedate = d3.time.format("%Y").parse;
+var formatDay_Time = d3.time.format("%Y");	
+
+//we're going to want to color our scores based on the genre. Here, we're just setting a color variable. 
+var color = d3.scale.category10();	
+
+
+//We need to tell d3 what kind of axes we want.
+//In the music data case, we want our dates on the x axis and our genres on the y.
+//Because the genres are categorical, we will explicitly tell d3 how far apart to space them, using rangeRoundBands
+var x = d3.time.scale().range([0, width]);
+var y = d3.scale.ordinal()
+      .rangeRoundBands([0, height], .1);
+
+//tell d3 to orient the y axis on the lefthand side of the graph
+var yAxis = d3.svg.axis()
+    .scale(y)
+    .outerTickSize(0)
+    .innerTickSize(0)
+    .orient("left");
+
+//put the x axis on the bottom
+var xAxis = d3.svg.axis()
+			.scale(x)
+            .orient("bottom");    
+
+//here we create our graph object, attach it to the body element of our html
+//and append the sizing attributes we specified earlier
+var svg = d3.select("body")
+	.append("svg")
+		.attr("width", width + margin.left + margin.right)
+		.attr("height", height + margin.top + margin.bottom)
+	.append("g")
+		.attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+
+//Now, we read in our music data.
+//We'll parse our dates and tell d3 that our scores are numeric 
+d3.csv("data/history_of_music.csv", function(error, data) {
+  data.forEach(function(d) {
+	d.year = parsedate(d.year);
+    d.score = +d.score;
+  });
+
+  //check to make sure the data was read in correctly
+  console.log(data);
+
+
+ //Now we'll create an array of unique genres, which we'll use to create our y axis
+ //to do this, we just loop through the genres data and append each name
+ //that doesn't already exist in the array
+  genres_filtered = []
+
+  data.forEach(function (d) {
+  	if (genres_filtered.indexOf(d.genre) === -1) {
+  	  genres_filtered.push(d.genre);
+  	}
+  });
+
+
+  // Set our x axis domain with the earliest and latest years
+  x.domain([new Date(1959, 01, 01), new Date(2009, 12, 01)]);
+
+  //Now we set the radius to be between zero and the height divided by the count of unique genres
+  var r = d3.scale.linear().range([0, height / genres_filtered.length]);
+  r.domain([0, d3.max(data, function(d) { return d.score})]);
+
+
+  //add the genre names to the y axis
+  y.domain(genres_filtered);
+
+  //color our bubbles based on the genre names
+  color.domain(genres_filtered);
+
+  //actually append our y axis to the svg 
+  svg.append("g")
+	  .attr("class", "y axis")
+	  .call(yAxis)
+ 	.selectAll("text")
+	  .attr("dx", 0)
+	  .attr("dy",-5)
+	  .style("text-anchor", "end");
+
+  //append our xaxis to the svg
+  svg.append("g")
+	  .attr("class", "x axis")
+	  .attr("transform", "translate(0," + height + ")")
+	  .call(xAxis);  
+
+	// attach our tooltip
+	var div = d3.select("body").append("div")
+		.attr("class", "tooltip")
+		.style("opacity", 1e-6);
+
+	//draw our circles based on the scores, and attach them to the svg
+	svg.selectAll(".dot")
+		.data(data)
+	.enter().append("circle")
+		.attr("class", "dot")
+		.attr("r", function(d) { 
+			return r(d.score); 
+		})
+		.style("opacity", 0.25)
+		.attr("cx", function(d) { return x(d.year); })
+		.attr("cy", function(d) { return y(d.genre); })
+		.style('fill', function (d) { return color(d.genre); })
+	    .on("mouseover", function(d) {
+			div.transition()
+				.duration(200)
+				.style("opacity", .7);
+			div	.html(
+					formatDay_Time(d.year) + "<br/>"  +
+					d.genre + "<br/>"  + 
+					d.score)	
+				.style("left", (d3.event.pageX) + "px")
+				.style("top", (d3.event.pageY - 42) + "px");
+			})	
+		.on("mouseout", function(d) {
+			div.transition()
+				.duration(500)
+				.style("opacity", 1e-6);
+		});	
+
+	// Add the title
+	svg.append("text")
+		.attr("x", (width / 2))				
+		.attr("y", 0 - (margin.top / 2))	
+		.attr("text-anchor", "middle")		
+		.style("font-size", "16px") 			
+		.text("Are We Human or Are We Dancer: the Rise and Fall of Musical Genres, 1960 - 2009, per Volume of Billboard Hot 100 Hits");	
+
+});
+
+</script>
