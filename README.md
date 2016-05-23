@@ -1,4 +1,5 @@
-# history_of_music
+# History of Music, visualized with D3
+
 D3 and R code for visualizing music genre time series data. 
 
 The original evolution of pop data comes from Matthias Mauch (https://figshare.com/authors/Matthias_Mauch/692480). 
